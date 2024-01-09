@@ -2,8 +2,9 @@
     display: grid;
     grid-template-columns: 2.5% 95% 2.5%;
     padding: 5px 0;
-    background: repeating-linear-gradient( 45deg, mediumspringgreen, mediumspringgreen 10px, aquamarine 10px, aquamarine 20px );
+    background: repeating-linear-gradient(45deg, mediumspringgreen, mediumspringgreen 10px, aquamarine 10px, aquamarine 20px);
 }
+
 .wrapper a {
     text-decoration: underline;
 }
@@ -18,6 +19,7 @@
     transition-property: opacity;
     transition-timing-function: cubic-bezier(0.08, 0.52, 0.52, 1);
 }
+
 .closeButton:hover {
     opacity: 1;
 }

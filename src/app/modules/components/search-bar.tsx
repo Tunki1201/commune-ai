@@ -18,6 +18,7 @@ export default function SearchBar() {
             <input
                 className={classNames("shadow-xl", classes.searchInput)}
                 type="text"
+                style={{ padding: '1rem' }}
                 value={searchedString}
                 onChange={(e) => setSearchedString(e.target.value)}
                 placeholder="Search for module"

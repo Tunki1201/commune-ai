@@ -19,6 +19,7 @@ export default function ModuleTile({
   description,
   attributes,
 }: ModuleTileProps) {
+
   return (
     <Link href={`/modules/${name}`} className={classes.tileWrapper}>
       <li
