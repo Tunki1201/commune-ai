@@ -1,5 +1,15 @@
 "use client";
 import React from 'react';
+import { MetaMaskConnector } from "wagmi/connectors/metaMask";
+import { signIn } from "next-auth/react";
+import { useAccount, useConnect, useSignMessage, useDisconnect } from "wagmi";
+import { useRouter } from "next/navigation";
+import { useAuthRequestChallengeEvm } from "@moralisweb3/next";
+import Modal from 'antd/es/modal/Modal';
+import Image from 'next/image';
+import MetaMaskImage from '../../../public/svg/metamask.svg'
+import GithubImage from '../../../public/svg/github-mark.svg'
+import GitHubLogin from 'react-github-login';
 
 const words: string[] = ["developers.", "designers.", "creators.", "everyone.", "<END>"];
 const colour: string[] = ["text-[#00000]", "text-[#ffb4ed] dark:text-[#FFD6F5]", "text-[#FF8F8F]  dark:text-[#FF8F8F]", "text-[#ffef40] dark:text-[#FFF7A1]"];
@@ -13,12 +23,73 @@ export default function HomepageHeader() {
   const [subIndex, setSubIndex] = React.useState(0);
   const [blink, setBlink] = React.useState(true);
   const [reverse, setReverse] = React.useState(false);
+  const [isShowAuthModalOpen, setIsShowAuthModalOpen] = React.useState(false)
 
   // state of the scroll position and header height
   const [scrollPosition, setScrollPosition] = React.useState(0);
   const headerRef = React.useRef<any>(null);
   const [headerHeight, setHeaderHeight] = React.useState(20);
 
+  const { connectAsync } = useConnect();
+  const { disconnectAsync } = useDisconnect();
+  const { isConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
+  const { requestChallengeAsync } = useAuthRequestChallengeEvm();
+  const { push } = useRouter();
+
+  const handleAuth = async () => {
+    if (isConnected) {
+      await disconnectAsync();
+    }
+
+    setIsShowAuthModalOpen(false)
+
+    const { account, chain } = await connectAsync({
+      connector: new MetaMaskConnector(),
+    });
+
+    try {
+      const result = await requestChallengeAsync({
+        address: account,
+        chainId: chain.id,
+      });
+
+      // Check if the result is undefined
+      if (result === undefined) {
+        throw new Error('Received undefined result from requestChallengeAsync');
+      }
+
+      // Now TypeScript knows that result is definitely not undefined, and you can safely access its properties
+      const { message } = result;
+      const signature = await signMessageAsync({ message });
+
+      // redirect user after successful authentication to '/user' page
+      const signInResponse = await signIn("moralis-auth", {
+        message,
+        signature,
+        redirect: false,
+        callbackUrl: "/modules",
+      });
+
+      // Check if signInResponse is defined before accessing its properties
+      const url = signInResponse?.url;
+
+      // Now you can use 'url' without TypeScript complaining about undefined
+      if (url) {
+        push(url);
+
+        // Do something with the 'url'
+      } else {
+        // Handle the case where 'url' is undefined
+      }
+      // Continue using message as needed
+      console.log(message);
+    } catch (error) {
+      // Handle any errors that might occur during the asynchronous operation
+      console.error('Error:', error);
+    }
+
+  };
 
   // typeWriter effect
   // give me the context of this whole useEffect
@@ -81,6 +152,49 @@ export default function HomepageHeader() {
     }
   }, [headerRef.current]);
 
+  const handleAuthModal = () => {
+    setIsShowAuthModalOpen(true)
+  }
+
+  const handleShowAuthModalCancel = () => {
+    setIsShowAuthModalOpen(false)
+  }
+
+  const onGitHubLoginSuccess = (response: any) => {
+
+    setIsShowAuthModalOpen(false)
+    
+    const accessToken = response.code;
+
+    const getUserInfo = async (accessToken: string) => {
+
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+
+        const userInfo = await response.json();
+        // Handle user information (userInfo)
+        console.log('------github account------', userInfo);
+
+      } else {
+        // Handle error
+        console.error('Failed to fetch user information from GitHub API');
+      }
+    };
+
+    // Call this function with the access token obtained after successful login
+    getUserInfo(accessToken);
+
+  }
+
+  const onGitHubLoginFailure = (response: any) => {
+    console.log('------the data from github-----failed-----', response);
+  }
+
   return (
     <header ref={headerRef} className={` dark:bg-[#161616] p-[4rem] py-32 text-center overflow-hidden ${getHeaderClasses(scrollPosition, headerHeight)} duration-500`} >
 
@@ -99,11 +213,11 @@ export default function HomepageHeader() {
             </div>
 
             <div className='w-30 h-10'>
-              <a href="docs/next/Introduction" className=' hover:no-underline' >
-                <div className=' bg-blue-700 rounded-lg shadow-lg hover:shadow-2xl text-center hover:bg-blue-600 duration-200 text-white hover:text-white font-sans font-semibold justify-center px-2 py-2 hover:border-blue-300 hover:border-2 hover:border-solid' >
-                  Get Started
-                </div>
-              </a>
+              {/* <a href="docs/next/Introduction" className=' hover:no-underline' > */}
+              <div className=' bg-blue-700 rounded-lg shadow-lg hover:shadow-2xl text-center hover:bg-blue-600 duration-200 text-white hover:text-white font-sans font-semibold justify-center px-2 py-2 hover:border-blue-300 hover:border-2 hover:border-solid cursor-pointer' onClick={handleAuthModal}>
+                Get Started
+              </div>
+              {/* </a> */}
             </div>
 
           </div>
@@ -116,6 +230,34 @@ export default function HomepageHeader() {
         </div>
       </div>
 
+      {
+        isShowAuthModalOpen &&
+        <Modal open={isShowAuthModalOpen} onCancel={handleShowAuthModalCancel} footer={null} width={500}>
+          <div className='flex items-center justify-center'>
+            <span style={{ fontWeight: '500', alignItems: 'center', display: 'flex', fontSize: '2rem' }}>
+              Welcome to Commune ai
+            </span>
+          </div>
+          <div className='flex items-center justify-evenly mt-14 mb-14'>
+
+            <div className='flex items-center justify-center' style={{ flexDirection: 'column' }}>
+              <Image src={MetaMaskImage} alt='login with Metamask' width={40} height={40} className='cursor-pointer' onClick={handleAuth} />
+              <span style={{ marginTop: '8px' }}>Continue with MetaMask</span>
+            </div>
+
+            <div className='flex items-center justify-center' style={{ flexDirection: 'column' }}>
+              <Image src={GithubImage} alt='login with Github' width={40} height={40} className='cursor-pointer' />
+              <GitHubLogin clientId='8386c0df1514607054e7'
+                buttonText="Continue with Github"
+                style={{ marginTop: '8px' }}
+                onSuccess={onGitHubLoginSuccess}
+                onFailure={onGitHubLoginFailure}
+                redirectUri={'http://localhost:3000/modules'}
+              />
+            </div>
+
+          </div>
+        </Modal>}
     </header>
   );
 }
